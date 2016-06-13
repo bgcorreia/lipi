@@ -12,20 +12,25 @@ import time
 DEBUG=1
 
 # LIMITE ALERTAS
-MAX_ALERTAS=2
+ALERTA_EMAIL = 2
+ALERTA_SMS = ALERTA_EMAIL + 1
 
 # CONTADOR DE ALERTAS
 alertas=0
 
-# PINO DO LED VERMELHO - PINO DE ALERTA
-pinoLed = 16
+# PINOS LED
+pinoLedVermelho = 16
+pinoLedVerde = 19
+
+# PINO BOTA
+pinoBotao = 13
 
 # PINOS DOS SENSORES
 sensorEsquerdo = MotionSensor(20)
 sensorDireito = MotionSensor(21)
 
 # TEMPO DE ESPERA
-delayTime = 20
+delayTime = 10
 
 # NOTIFICACAO
 notificacao=0
@@ -43,10 +48,19 @@ canal=0
 # VARIAVEL QUE GUARDA MODO DE FUNCIONAMENTO DOS SENSORES
 monitoramento=0
 
-# VARIAVEIS PINOS GPIO
+# VARIAVEIS PINO
 GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup(pinoLed,GPIO.OUT)
+#GPIO.setwarnings(False)
+
+# PINO VERMELHO
+GPIO.setup(pinoLedVermelho,GPIO.OUT)
+
+# PINO VERDE
+GPIO.setup(pinoLedVerde,GPIO.OUT)
+
+# PINO BOTAO
+GPIO.setup(pinoBotao,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
 
 # DIRETORIOS
 projeto_dir="/opt/lipi/"
@@ -78,120 +92,174 @@ def exec_audio(nome_audio,tempo_espera):
     return 0
 
 
-# FUNCAO ENVIA EMAIL
-def env_email(leito):
+# FUNCAO ENVIA NOTIFICACAO
+def notifica(leito,tipo):
     global notificacao
     global direita
     global esquerda
 
-    now = datetime.datetime.now()
-    data = now.strftime("%H:%M:%S %d/%m/%Y")
-    dataReversa = now.strftime("%Y%m%d%H%M%S")
-    dataResumida = now.strftime("%m/%d %H:%M")
-    mensagem="O(A) paciente do Leito " + leito + " encontra-se um pouco inquieto(a). Protocolo: " + str(leito) + str(dataReversa)
-    assunto="LIPI - ALERTA - LEITO " + leito + " - " + str(dataResumida)
-    destino='brunogomescorreia@gmail.com'
+    if(tipo == "email"):
+        now = datetime.datetime.now()
+        data = now.strftime("%H:%M:%S %d/%m/%Y")
+        dataReversa = now.strftime("%Y%m%d%H%M%S")
+        dataResumida = now.strftime("%m/%d %H:%M")
+        mensagem="O(A) paciente do Leito " + leito + " encontra-se um pouco inquieto(a). Protocolo: " + str(leito) + str(dataReversa)
+        assunto="LIPI - ALERTA - LEITO " + leito + " - " + str(dataResumida)
+        destino='brunogomescorreia@gmail.com'
 
-    if(DEBUG):
-        print("----------DEBUG----------")
-        print("Mensagem: " + mensagem)
-        print("Assunto: " + assunto)
-        print("Email para: " + destino)
-        print('Valor da variavel notificacao: {}'.format(notificacao))
-        print('Valor da variavel esquerda: {}'.format(esquerda))
-        print('Valor da variavel direita: {}'.format(direita))
-        print("----------DEBUG----------")
+        if(DEBUG):
+            print("----------DEBUG----------")
+            print("Mensagem: " + mensagem)
+            print("Assunto: " + assunto)
+            print("Email para: " + destino)
+            print('Valor da variavel notificacao: {}'.format(notificacao))
+            print('Valor da variavel esquerda: {}'.format(esquerda))
+            print('Valor da variavel direita: {}'.format(direita))
+            print("----------DEBUG----------")
 
-    print("Enviando email...")
-    # ENVIANDO EMAIL ATRAVES DO SISTEMA - SSMTP (FIZ UM SCRIPT PARA FACILITAR)
-    os.system(scripts_dir + "enviar-email " + "\"" + mensagem + "\"" + " " + "\"" + assunto + "\"" + " " + destino)
+        print("Enviando email...")
+        # ENVIANDO EMAIL ATRAVES DO SISTEMA - SSMTP (FIZ UM SCRIPT PARA FACILITAR)
+        os.system(scripts_dir + "enviar-email " + "\"" + mensagem + "\"" + " " + "\"" + assunto + "\"" + " " + destino)
 
-    # NOTIFICACAO ENVIADA
-    #exec_audio("notificacao_enciada.wav",S)
+        # NOTIFICACAO ENVIADA
+        #exec_audio("notificacao_enviada.wav",S)
 
-    # LIMPAR VARIAVEIS
-    #notificacao=0
-    direita=0
-    esquerda=0
+        # LIMPAR VARIAVEIS
+        #notificacao=0
+        direita=0
+        esquerda=0
+
+    if(tipo == "sms"):
+        now = datetime.datetime.now()
+        data = now.strftime("%H:%M:%S %d/%m/%Y")
+        dataReversa = now.strftime("%Y%m%d%H%M%S")
+        dataResumida = now.strftime("%m/%d %H:%M")
+        mensagem="O(A) paciente do Leito " + leito + " encontra-se um pouco inquieto(a). Protocolo: " + str(leito) + str(dataReversa)
+        destino='998620224'
+
+        if(DEBUG):
+            print("----------DEBUG----------")
+            print("Mensagem: " + mensagem)
+            print("SMS para: " + destino)
+            print('Valor da variavel notificacao: {}'.format(notificacao))
+            print('Valor da variavel esquerda: {}'.format(esquerda))
+            print('Valor da variavel direita: {}'.format(direita))
+            print("----------DEBUG----------")
+
+        print("Enviando sms...")
+        # ENVIANDO EMAIL ATRAVES DO SISTEMA - SSMTP (FIZ UM SCRIPT PARA FACILITAR)
+        os.system(scripts_dir + "enviar-sms " + "\"" + mensagem + "\"" + " " + destino)
+
+        # NOTIFICACAO ENVIADA
+        #exec_audio("notificacao_enviada.wav",S)
+
+        # LIMPAR VARIAVEIS
+        #notificacao=0
+        direita=0
+        esquerda=0
+        
 
     return 0
 
+# COLOCAR AUDIO
+exec_audio("ligado.wav",2)
 
 # LOOP "ETERNO" DO PROGRAMA
 while True:
-    if (sensorDireito.motion_detected or sensorEsquerdo.motion_detected):
 
-        if not (monitoramento):
-            print("Movimento detectado!")
+    if (GPIO.input(pinoBotao)):
+        i+=1
+        print(i,"Botao ativo, sensores ativos.")
+        GPIO.output(pinoLedVerde,GPIO.HIGH)
 
-            exec_audio("movimento_detectado.wav",2)
-            exec_audio("em_X_segundos.wav",0)
-            print("Modo de monitoramento ativado!")
-            monitoramento=1
+        if (sensorDireito.motion_detected or sensorEsquerdo.motion_detected):
 
-            for cont in range (0, delayTime):
-                i+=1
-                print(i,"Aguardando botao DESLIGAR",cont,"s","de",delayTime)
+            if not (monitoramento):
+                print("Movimento detectado!")
 
-                # PISCAR LED NA DETECAO - ESPERA delayTime
-                if not (cont % 2):
-                    print("Acendendo LED deteccao...")
-                    GPIO.output(pinoLed,GPIO.HIGH)
-                else:
-                    print("Apagando LED deteccao...")
-                    GPIO.output(pinoLed,GPIO.LOW)
-                
-                time.sleep(1)
-
-            # QUANDO TEMPO FOR IMPAR, SERA NECESSARIO
-            if (GPIO.input(pinoLed)):
-                print("Apagando LED de deteccao. Tempo de delay foi IMPAR.")
-                GPIO.output(pinoLed,GPIO.LOW)
-        else:
-                
-            while(sensorEsquerdo.motion_detected or sensorDireito.motion_detected):
-
-                alertas+=1
-                notificacao+=1
-                
-                print("Acendendo LED de deteccao - VERMELHO")
-                GPIO.output(pinoLed,GPIO.HIGH)
-
-                if(sensorEsquerdo.motion_detected):
-                    esquerda+=1
-                    print(i,"Movimento do lado ESQUERDO!",sensorEsquerdo.motion_detected)
-                    exec_audio("mensagem_sra_camila.wav",14)
-                
-                if(sensorDireito.motion_detected):
-                    direita+=1
-                    print(i,"Movimento do lado DIREITO!",sensorDireito.motion_detected)
-                    exec_audio("mensagem_sra_camila.wav",14)
-
-                i+=1
-                time.sleep(1)
-
-                #USAR SWITCH CASE! ABAIXO
-
-                #if( esquerda > MAX_ALERTAS or direita > MAX_ALERTAS ):
-                if( notificacao > MAX_ALERTAS ):
-                    # CHAMAR FUNCOES DE NOTIFICACAO AQUI
-                    exec_audio("mensagem_sra_camila_notificacao.wav",8)
-                    env_email("BC-0013")
-                    break
-
-            if(DEBUG):
-                print("----------DEBUG----------")
-                print('Valor da variavel notificacao: {}'.format(notificacao))
-                print('Valor da variavel esquerda: {}'.format(esquerda))
-                print('Valor da variavel direita: {}'.format(direita))
-                print("----------DEBUG----------")       
+                exec_audio("movimento_detectado.wav",2)
+                exec_audio("modo_monitor_10s.wav",0)
             
+                # COLOCAR AUDIO           
+                #exec_audio("monitor_ativado.wav",0)
+
+            
+                monitoramento=1
+                print("Modo de monitoramento ativado!")
+
+                for cont in range (0, delayTime):
+                    i+=1
+                    print(i,"Aguardando botao DESLIGAR",cont,"s","de",delayTime)
+
+                    # PISCAR LED NA DETECAO - ESPERA delayTime
+                    if not (cont % 2):
+                        print("Acendendo LED deteccao...")
+                        GPIO.output(pinoLedVermelho,GPIO.HIGH)
+                    else:
+                        print("Apagando LED deteccao...")
+                        GPIO.output(pinoLedVermelho,GPIO.LOW)
+                
+                    time.sleep(1)
+
+                # QUANDO TEMPO FOR IMPAR, SERA NECESSARIO
+                if (GPIO.input(pinoLedVermelho)):
+                    print("Apagando LED de deteccao. Tempo de delay foi IMPAR.")
+                    GPIO.output(pinoLedVermelho,GPIO.LOW)
+            else:
+                
+                while(sensorEsquerdo.motion_detected or sensorDireito.motion_detected):
+
+                    alertas+=1
+                                
+                    print("Acendendo LED de deteccao - VERMELHO")
+                    GPIO.output(pinoLedVermelho,GPIO.HIGH)
+
+                    if(sensorEsquerdo.motion_detected):
+                        esquerda+=1
+                        notificacao+=1
+                        print(i,"Movimento do lado ESQUERDO!",sensorEsquerdo.motion_detected)
+                        exec_audio("mensagem_sra_camila.wav",14)
+                
+                    if(sensorDireito.motion_detected):
+                        direita+=1
+                        notificacao+=1
+                        print(i,"Movimento do lado DIREITO!",sensorDireito.motion_detected)
+                        exec_audio("mensagem_sra_camila.wav",14)
+
+                    i+=1
+                    time.sleep(1)
+
+                    #USAR SWITCH CASE! ABAIXO
+
+                    #if( esquerda > MAX_ALERTAS or direita > MAX_ALERTAS ):
+                    if( notificacao == ALERTA_EMAIL ):
+                        #exec_audio("mensagem_sra_camila_notificacao_email.wav",8)
+                        notifica("BC0013","email")
+                        break
+
+                    if( notificacao == ALERTA_SMS ):
+                        #exec_audio("mensagem_sra_camila_notificacao_sms.wav",8)
+                        notifica("BC0013","sms")
+                        break
+
+                if(DEBUG):
+                    print("----------DEBUG----------")
+                    print('Valor da variavel notificacao: {}'.format(notificacao))
+                    print('Valor da variavel esquerda: {}'.format(esquerda))
+                    print('Valor da variavel direita: {}'.format(direita))
+                    print("----------DEBUG----------")       
+            
+        else:
+            i+=1
+            if (GPIO.input(pinoLedVermelho)):
+                print("Apagando LED de deteccao - VERMELHO")
+                GPIO.output(pinoLedVermelho,GPIO.LOW)
+            
+            print(i,"Sem movimento")
+        
+            time.sleep(1)
     else:
         i+=1
-        if (GPIO.input(pinoLed)):
-            print("Apagando LED de deteccao - VERMELHO")
-            GPIO.output(pinoLed,GPIO.LOW)
-            
-        print(i,"Sem movimento")
-        
+        print(i,"Botao nao pressionado, sensores inativos.")
+        GPIO.output(pinoLedVerde,GPIO.LOW)
         time.sleep(1)
