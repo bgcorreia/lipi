@@ -12,7 +12,7 @@ import time
 DEBUG=1
 
 # LIMITE ALERTAS
-ALERTA_EMAIL = 2
+ALERTA_EMAIL = 3
 ALERTA_SMS = ALERTA_EMAIL + 1
 
 # CONTADOR DE ALERTAS
@@ -162,6 +162,7 @@ def notifica(leito,tipo):
     return 0
 
 # COLOCAR AUDIO
+print("Sistema ligado!")
 exec_audio("ligado.wav",2)
 
 # LOOP "ETERNO" DO PROGRAMA
@@ -177,8 +178,10 @@ while True:
             if not (monitoramento):
                 print("Movimento detectado!")
 
-                exec_audio("movimento_detectado.wav",2)
-                exec_audio("modo_monitor_10s.wav",0)
+                if not (notificacao):
+                    print("Entrou em notificacao")
+                    exec_audio("movimento_detectado.wav",2)
+                    exec_audio("modo_monitor_10s.wav",0)
             
                 # COLOCAR AUDIO           
                 #exec_audio("monitor_ativado.wav",0)
@@ -210,7 +213,7 @@ while True:
                 while(sensorEsquerdo.motion_detected or sensorDireito.motion_detected):
 
                     alertas+=1
-                                
+
                     print("Acendendo LED de deteccao - VERMELHO")
                     GPIO.output(pinoLedVermelho,GPIO.HIGH)
 
@@ -225,20 +228,20 @@ while True:
                         notificacao+=1
                         print(i,"Movimento do lado DIREITO!",sensorDireito.motion_detected)
                         exec_audio("mensagem_sra_camila.wav",14)
+                    print("ENTROU")
 
                     i+=1
                     time.sleep(1)
 
                     #USAR SWITCH CASE! ABAIXO
 
-                    #if( esquerda > MAX_ALERTAS or direita > MAX_ALERTAS ):
                     if( notificacao == ALERTA_EMAIL ):
-                        #exec_audio("mensagem_sra_camila_notificacao_email.wav",8)
+                        exec_audio("enviando_email.wav",1)
                         notifica("BC0013","email")
                         break
 
                     if( notificacao == ALERTA_SMS ):
-                        #exec_audio("mensagem_sra_camila_notificacao_sms.wav",8)
+                        exec_audio("enviando_sms.wav",1)
                         notifica("BC0013","sms")
                         break
 
