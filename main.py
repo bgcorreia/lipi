@@ -88,7 +88,7 @@ def env_email(leito):
     data = now.strftime("%H:%M:%S %d/%m/%Y")
     dataReversa = now.strftime("%Y%m%d%H%M%S")
     dataResumida = now.strftime("%m/%d %H:%M")
-    mensagem="A(O) paciente do Leito " + leito + " encontra-se um pouco inquieta. Protocolo: " + str(leito) + str(dataReversa)
+    mensagem="O(A) paciente do Leito " + leito + " encontra-se um pouco inquieto(a). Protocolo: " + str(leito) + str(dataReversa)
     assunto="LIPI - ALERTA - LEITO " + leito + " - " + str(dataResumida)
     destino='brunogomescorreia@gmail.com'
 
@@ -105,6 +105,9 @@ def env_email(leito):
     print("Enviando email...")
     # ENVIANDO EMAIL ATRAVES DO SISTEMA - SSMTP (FIZ UM SCRIPT PARA FACILITAR)
     os.system(scripts_dir + "enviar-email " + "\"" + mensagem + "\"" + " " + "\"" + assunto + "\"" + " " + destino)
+
+    # NOTIFICACAO ENVIADA
+    #exec_audio("notificacao_enciada.wav",S)
 
     # LIMPAR VARIAVEIS
     #notificacao=0
