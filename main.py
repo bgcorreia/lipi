@@ -43,10 +43,11 @@ GPIO.setup(pinoEcho,GPIO.IN)
 ## TEMPO DE ESPERA
 tempoEspera = 5
 
-## NOTIFICACAO
+## CONTADORES
 notificacao=0
-
-## CONTADOR
+obstrucaObjeto=0
+perigoQueda=0
+pacienteAusente=0
 contador=0
 
 ## CANAL DE AUDIO
@@ -242,7 +243,18 @@ while (True):
             piscaLed(5,pinoLedVermelho)
 
             if(distancia < 16 and GPIO.input(pinoBotao)):
+                obstrucaObjeto+=1
                 print("NOTIFICACAO: ALGUM OBJETO ESTA OBSTRUINDO OS SENSORES!")
+
+                if(obstrucaoObjeto > 10):
+                    print("Enviando notificacao a respeito da Obstrucao")
+
+                if(DEBUG):
+                    print("----------DEBUG----------")
+                    print('obstrucaObjeto: {}'.format(obstrucaObjeto))
+                    print("perigoQueda: {}".format(perigoQueda))
+                    print("pacienteAusente: {}".format(pacienteAusente))
+                    print("----------DEBUG----------")
 
         elif(distancia > 18 and distancia < 21.50):
             if(DEBUG):
@@ -252,28 +264,62 @@ while (True):
             piscaLed(5,pinoLedVermelho)
 
             if((distancia > 18 and distancia < 21.50) and GPIO.input(pinoBotao)):
+                perigoQueda=+1
                 print("AVISO: PACIENTE COM RISCO DE QUEDA!")
+
+                if(perigoQueda > 5):
+                    print("Enviando notificacao a respeito da Obstrucao")
+
+                if(DEBUG):
+                    print("----------DEBUG----------")
+                    print('obstrucaObjeto: {}'.format(obstrucaObjeto))
+                    print("perigoQueda: {}".format(perigoQueda))
+                    print("pacienteAusente: {}".format(pacienteAusente))
+                    print("----------DEBUG----------")
 
         elif(distancia > 26):
             print("Entrou em distancia > 26")
             piscaLed(5,pinoLedVermelho)
 
             if(distancia > 26 and GPIO.input(pinoBotao)):
+                pacienteAusente+=1
                 print("AVISO: PACIENTE NAO ESTA NO LEITO!")
-                #notifica(leitoPaciente, "email", emailParente, nomePaciente, nomeParente)
-                #notifica(leitoPaciente, "sms", numTelefoneParente, nomePaciente, nomeParente)
-                
-            
-                 
+
+                if(pacienteAusente == 2):
+                    # AUDIO
+                    # execAudio(paciente_ausente,5)
+                    notifica(leitoPaciente, "email", emailParente, nomePaciente, nomeParente)
+                elif(pacienteAusente == 3):
+                    notifica(leitoPaciente, "sms", numTelefoneParente, nomePaciente, nomeParente)
+                elif(pacienteAusente == 4):
+                    print("Ligar para parente")
+                    os.system("scp -P 2220 /opt/lipi/scripts/faz-ligacao.call lipi@lipi.engcomputacao.com.br:")
+                    #liga para parente
+
+                if(DEBUG):
+                    print("----------DEBUG----------")
+                    print('obstrucaObjeto: {}'.format(obstrucaObjeto))
+                    print("perigoQueda: {}".format(perigoQueda))
+                    print("pacienteAusente: {}".format(pacienteAusente))
+                    print("----------DEBUG----------")
+                                 
     else: # ELSE IF ID 1
         contador+=1
         print(contador,"Botao nao pressionado, alertas inativos.")
         GPIO.output(pinoLedVerde,GPIO.LOW)
         distancia = calcDistancia(pinoGatilho, pinoEcho)
         time.sleep(1)
+
+        if(contador > 300):
+            # ZERAR CONTADORES
+            obstrucaObjeto=0
+            perigoQueda=0
+            pacienteAusente=0
+
+            if(DEBUG):
+                    print("----------DEBUG----------")
+                    print('obstrucaObjeto: {}'.format(obstrucaObjeto))
+                    print("perigoQueda: {}".format(perigoQueda))
+                    print("pacienteAusente: {}".format(pacienteAusente))
+                    print("----------DEBUG----------")
         
-# INICIANDO ESTABILIZACAO DO SENSOR
-#GPIO.output(pinoGatilho,False)
-#print ("Aguardando o Sensor Estabilizar")
-#time.sleep(3)
-    

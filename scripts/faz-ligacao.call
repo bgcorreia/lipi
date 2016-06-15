@@ -1,0 +1,6 @@
+Channel: Dongle/dongle0/998620224
+MaxRetries: 3
+RetryTime: 10
+WaitTime: 45
+Context: project-lipi
+Extension: 001313
