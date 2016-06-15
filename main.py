@@ -1,111 +1,133 @@
 #!/usr/bin/env python3
 
 # BIBLIOTECAS
-from gpiozero import MotionSensor
 import datetime
 import RPi.GPIO as GPIO
 import pygame.mixer
 import os
 import time
 
-# ATIVAR PARA MAIS DETALHES NA EXECUCAO. DEBUG=1 -> ATIVO , DEBUG=0 -> INATIVO
+## VARIAVEIS
+
+## ATIVAR PARA MAIS DETALHES NA EXECUCAO. DEBUG=1 -> ATIVO , DEBUG=0 -> INATIVO
 DEBUG=1
 
-# LIMITE ALERTAS
+## LIMITE ALERTAS
 ALERTA_EMAIL = 3
 ALERTA_SMS = ALERTA_EMAIL + 1
 
-# CONTADOR DE ALERTAS
-alertas=0
-
-# PINOS LED
-pinoLedVermelho = 16
-pinoLedVerde = 19
-
-# PINO BOTA
-pinoBotao = 13
-
-# PINOS DOS SENSORES
-sensorEsquerdo = MotionSensor(20)
-sensorDireito = MotionSensor(21)
-
-# TEMPO DE ESPERA
-delayTime = 10
-
-# NOTIFICACAO
-notificacao=0
-
-# CONTADOR DE ALERTAS DOS SENSORES
-esquerda=0
-direita=0
-
-# CONTADOR
-i=0
-
-# CANAL DE AUDIO
-canal=0
-
-# VARIAVEL QUE GUARDA MODO DE FUNCIONAMENTO DOS SENSORES
-monitoramento=0
-
-# VARIAVEIS PINO
+## VARIAVEIS P/ DEFINICAO DOS PINOS
 GPIO.setmode(GPIO.BCM)
-#GPIO.setwarnings(False)
+GPIO.setwarnings(False)
 
-# PINO VERMELHO
+## LED VERMELHO
+pinoLedVermelho = 26
 GPIO.setup(pinoLedVermelho,GPIO.OUT)
 
-# PINO VERDE
+## LED VERDE
+pinoLedVerde = 19
 GPIO.setup(pinoLedVerde,GPIO.OUT)
 
-# PINO BOTAO
+## BOTAO
+pinoBotao = 13
 GPIO.setup(pinoBotao,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
+## SENSOR ULTRASSONICO - GATILHO
+pinoGatilho = 20
+GPIO.setup(pinoGatilho,GPIO.OUT)
 
-# DIRETORIOS
+## SENSOR ULTRASSONICO - ECHO
+pinoEcho = 21
+GPIO.setup(pinoEcho,GPIO.IN)
+
+## TEMPO DE ESPERA
+tempoEspera = 5
+
+## NOTIFICACAO
+notificacao=0
+
+## CONTADOR
+contador=0
+
+## CANAL DE AUDIO
+canalAudio=0
+
+## VARIAVEL QUE GUARDA MODO DE FUNCIONAMENTO DOS SENSORES
+monitoramento=0
+
+## DIRETORIOS
 projeto_dir="/opt/lipi/"
 scripts_dir=projeto_dir + "scripts/"
 sounds_dir=projeto_dir + "sounds/"
 
+### FUNCOES
 
-# FUNCAO EXECUTA AUDIO
-def exec_audio(nome_audio,tempo_espera):
-    global canal
+### CALCULA DISTANCIA
+def calcDistancia(pino_Gatilho,pino_Echo):
 
-    if(canal==8):
-        canal=0
+    global contador
+
+    GPIO.output(pino_Gatilho, True)
+    time.sleep(0.00001)
+    GPIO.output(pino_Gatilho, False)
+
+    # ENQUANTO FALSO
+    while not (GPIO.input(pino_Echo)):
+            pulsoInicio = time.time()
+
+    # ENQUANTO VERDADEIRO
+    while (GPIO.input(pino_Echo)):
+            pulsoFim = time.time()
+     
+    pulsoDuracao = pulsoFim - pulsoInicio
+     
+    distancia = pulsoDuracao * 17150
+     
+    distancia = round(distancia, 2)
+
+    print ("{} A distancia e: {} cm".format(contador,distancia))
+
+    contador+=1
+
+    return distancia
+
+
+### EXECUTA AUDIO
+def execAudio(nome_Audio,tempo_Espera):
+    global canalAudio
+    global contador
+
+    if(canalAudio==8):
+        canalAudio=0
 
     if(DEBUG):
-        print('Canal: {}'.format(canal))
+        print('Canal do Audio: {}'.format(canalAudio))
     
     pygame.mixer.init(48000, -16,1024)
-    soundCanal = pygame.mixer.Channel(canal)
+    somCanal = pygame.mixer.Channel(canalAudio)
 
-    sound = pygame.mixer.Sound(sounds_dir + nome_audio)
-    print("Tocando audio...")
-    soundCanal.play(sound)
+    som = pygame.mixer.Sound(sounds_dir + nome_Audio)
+    print('Tocando audio: {} Tempo Espera: {}'.format(nome_Audio,tempo_Espera))
+    somCanal.play(som)
         
-    canal+=1
+    canalAudio+=1
 
-    time.sleep(tempo_espera)
+    time.sleep(tempo_Espera)
     
     return 0
 
 
-# FUNCAO ENVIA NOTIFICACAO
-def notifica(leito,tipo):
+### ENVIA NOTIFICACAO
+def notifica(leito, tipo, destino, nome_Paciente, nome_Parente):
     global notificacao
-    global direita
-    global esquerda
 
     if(tipo == "email"):
         now = datetime.datetime.now()
         data = now.strftime("%H:%M:%S %d/%m/%Y")
         dataReversa = now.strftime("%Y%m%d%H%M%S")
         dataResumida = now.strftime("%m/%d %H:%M")
-        mensagem="O(A) paciente do Leito " + leito + " encontra-se um pouco inquieto(a). Protocolo: " + str(leito) + str(dataReversa)
+        mensagem="Sr(a) " + nome_Parente + ", o(a) paciente " + nome_Paciente + " do Leito " + leito + " encontra-se um pouco inquieto(a). Protocolo: " + str(leito) + str(dataReversa)
         assunto="LIPI - ALERTA - LEITO " + leito + " - " + str(dataResumida)
-        destino='brunogomescorreia@gmail.com'
 
         if(DEBUG):
             print("----------DEBUG----------")
@@ -113,8 +135,6 @@ def notifica(leito,tipo):
             print("Assunto: " + assunto)
             print("Email para: " + destino)
             print('Valor da variavel notificacao: {}'.format(notificacao))
-            print('Valor da variavel esquerda: {}'.format(esquerda))
-            print('Valor da variavel direita: {}'.format(direita))
             print("----------DEBUG----------")
 
         print("Enviando email...")
@@ -122,28 +142,22 @@ def notifica(leito,tipo):
         os.system(scripts_dir + "enviar-email " + "\"" + mensagem + "\"" + " " + "\"" + assunto + "\"" + " " + destino)
 
         # NOTIFICACAO ENVIADA
-        #exec_audio("notificacao_enviada.wav",S)
+        #execAudio("notificacao_enviada.wav",S)
 
         # LIMPAR VARIAVEIS
-        #notificacao=0
-        direita=0
-        esquerda=0
 
     if(tipo == "sms"):
         now = datetime.datetime.now()
         data = now.strftime("%H:%M:%S %d/%m/%Y")
         dataReversa = now.strftime("%Y%m%d%H%M%S")
         dataResumida = now.strftime("%m/%d %H:%M")
-        mensagem="O(A) paciente do Leito " + leito + " encontra-se um pouco inquieto(a). Protocolo: " + str(leito) + str(dataReversa)
-        destino='998620224'
+        mensagem="Sr(a) " + nome_Parente + ", o(a) paciente " + nome_Paciente + " do Leito " + leito + " encontra-se um pouco inquieto(a). Protocolo: " + str(leito) + str(dataReversa)
 
         if(DEBUG):
             print("----------DEBUG----------")
             print("Mensagem: " + mensagem)
             print("SMS para: " + destino)
             print('Valor da variavel notificacao: {}'.format(notificacao))
-            print('Valor da variavel esquerda: {}'.format(esquerda))
-            print('Valor da variavel direita: {}'.format(direita))
             print("----------DEBUG----------")
 
         print("Enviando sms...")
@@ -151,118 +165,115 @@ def notifica(leito,tipo):
         os.system(scripts_dir + "enviar-sms " + "\"" + mensagem + "\"" + " " + destino)
 
         # NOTIFICACAO ENVIADA
-        #exec_audio("notificacao_enviada.wav",S)
+        #execAudio("notificacao_enviada.wav",S)
 
-        # LIMPAR VARIAVEIS
-        #notificacao=0
-        direita=0
-        esquerda=0
-        
+        # LIMPAR VARIAVEIS 
 
     return 0
 
-# COLOCAR AUDIO
+
+## PISCA LED
+def piscaLed(tempo_Espera,pino_Led):
+
+    global contador
+
+    for cont in range (tempo_Espera):
+        contador+=1
+        print(contador,"Aguardando botao DESLIGAR",cont,"s","de",tempo_Espera)
+
+        # PISCAR LED NA DETECAO - ESPERA delayTime
+        if not (cont % 2):
+            print("Acendendo LED")
+            GPIO.output(pino_Led,GPIO.HIGH)
+        else:
+            print("Apagando LED")
+            GPIO.output(pino_Led,GPIO.LOW)
+
+        time.sleep(1)
+
+    return 0
+
+
+# INCOFRMACOES DO PACIENTE E PARENTE
+nomePaciente="Margarete"
+leitoPaciente="BC0013"
+nomeParente="Bruno"
+numTelefoneParente="988122235"
+emailParente="brunogomescorreia@gmail.com"
+
+
+# ESPERANDO SENSOR ESTABILIZAR
+GPIO.output(pinoGatilho,False)
+print ("Aguardando o Sensor Estabilizar")
+while (contador <=3):
+    distancia = calcDistancia(pinoGatilho, pinoEcho)
+    time.sleep(1)
+    contador+=1
+
+# INFORMANDO QUE SISTEMA ESTA LIGADO
 print("Sistema ligado!")
-exec_audio("ligado.wav",2)
+execAudio("ligado.wav",2)
 
 # LOOP "ETERNO" DO PROGRAMA
-while True:
+while (True):
 
-    if (GPIO.input(pinoBotao)):
-        i+=1
-        print(i,"Botao ativo, sensores ativos.")
+    # APAGA LED VERMELHO - CASO ESTEJA ACESO
+    if(GPIO.input(pinoLedVermelho)):
+        GPIO.output(pinoLedVermelho,GPIO.LOW)
+
+    if(DEBUG):
+        print("Valor statusBotao: ",GPIO.input(pinoBotao))
+
+    # SE BOTAO PRESSIONADO
+    if (GPIO.input(pinoBotao)): # IF ID 1
+
+        contador+=1
+        print(contador,"Botao ativo, sensores ativos.")
         GPIO.output(pinoLedVerde,GPIO.HIGH)
 
-        if (sensorDireito.motion_detected or sensorEsquerdo.motion_detected):
-
-            if not (monitoramento):
-                print("Movimento detectado!")
-
-                if not (notificacao):
-                    print("Entrou em notificacao")
-                    exec_audio("movimento_detectado.wav",2)
-                    exec_audio("modo_monitor_10s.wav",0)
-            
-                # COLOCAR AUDIO           
-                #exec_audio("monitor_ativado.wav",0)
-
-            
-                monitoramento=1
-                print("Modo de monitoramento ativado!")
-
-                for cont in range (0, delayTime):
-                    i+=1
-                    print(i,"Aguardando botao DESLIGAR",cont,"s","de",delayTime)
-
-                    # PISCAR LED NA DETECAO - ESPERA delayTime
-                    if not (cont % 2):
-                        print("Acendendo LED deteccao...")
-                        GPIO.output(pinoLedVermelho,GPIO.HIGH)
-                    else:
-                        print("Apagando LED deteccao...")
-                        GPIO.output(pinoLedVermelho,GPIO.LOW)
-                
-                    time.sleep(1)
-
-                # QUANDO TEMPO FOR IMPAR, SERA NECESSARIO
-                if (GPIO.input(pinoLedVermelho)):
-                    print("Apagando LED de deteccao. Tempo de delay foi IMPAR.")
-                    GPIO.output(pinoLedVermelho,GPIO.LOW)
-            else:
-                
-                while(sensorEsquerdo.motion_detected or sensorDireito.motion_detected):
-
-                    alertas+=1
-
-                    print("Acendendo LED de deteccao - VERMELHO")
-                    GPIO.output(pinoLedVermelho,GPIO.HIGH)
-
-                    if(sensorEsquerdo.motion_detected):
-                        esquerda+=1
-                        notificacao+=1
-                        print(i,"Movimento do lado ESQUERDO!",sensorEsquerdo.motion_detected)
-                        exec_audio("mensagem_sra_camila.wav",14)
-                
-                    if(sensorDireito.motion_detected):
-                        direita+=1
-                        notificacao+=1
-                        print(i,"Movimento do lado DIREITO!",sensorDireito.motion_detected)
-                        exec_audio("mensagem_sra_camila.wav",14)
-                    print("ENTROU")
-
-                    i+=1
-                    time.sleep(1)
-
-                    #USAR SWITCH CASE! ABAIXO
-
-                    if( notificacao == ALERTA_EMAIL ):
-                        exec_audio("enviando_email.wav",1)
-                        notifica("BC0013","email")
-                        break
-
-                    if( notificacao == ALERTA_SMS ):
-                        exec_audio("enviando_sms.wav",1)
-                        notifica("BC0013","sms")
-                        break
-
-                if(DEBUG):
-                    print("----------DEBUG----------")
-                    print('Valor da variavel notificacao: {}'.format(notificacao))
-                    print('Valor da variavel esquerda: {}'.format(esquerda))
-                    print('Valor da variavel direita: {}'.format(direita))
-                    print("----------DEBUG----------")       
-            
-        else:
-            i+=1
-            if (GPIO.input(pinoLedVermelho)):
-                print("Apagando LED de deteccao - VERMELHO")
-                GPIO.output(pinoLedVermelho,GPIO.LOW)
-            
-            print(i,"Sem movimento")
-        
-            time.sleep(1)
-    else:
-        i+=1
-        print(i,"Botao nao pressionado, sensores inativos.")
-        GPIO.output(pinoLedVerde,GPIO.LOW)
+        distancia = calcDistancia(pinoGatilho, pinoEcho)
         time.sleep(1)
+
+        if(distancia < 17):
+            if(DEBUG):
+                print("Entrou em distancia < 16")
+            # COLOCAR AUDIO
+            #execAudio("algum_objeto.wav",2)
+            piscaLed(5,pinoLedVermelho)
+
+            if(distancia < 16 and GPIO.input(pinoBotao)):
+                print("NOTIFICACAO: ALGUM OBJETO ESTA OBSTRUINDO OS SENSORES!")
+
+        elif(distancia > 18 and distancia < 21.50):
+            if(DEBUG):
+                print("Entrou em 18 < distancia < 21")
+            # COLOCAR AUDIO
+            #execAudio("cuidado_sra.wav",2)
+            piscaLed(5,pinoLedVermelho)
+
+            if((distancia > 18 and distancia < 21.50) and GPIO.input(pinoBotao)):
+                print("AVISO: PACIENTE COM RISCO DE QUEDA!")
+
+        elif(distancia > 26):
+            print("Entrou em distancia > 26")
+            piscaLed(5,pinoLedVermelho)
+
+            if(distancia > 26 and GPIO.input(pinoBotao)):
+                print("AVISO: PACIENTE NAO ESTA NO LEITO!")
+                #notifica(leitoPaciente, "email", emailParente, nomePaciente, nomeParente)
+                #notifica(leitoPaciente, "sms", numTelefoneParente, nomePaciente, nomeParente)
+                
+            
+                 
+    else: # ELSE IF ID 1
+        contador+=1
+        print(contador,"Botao nao pressionado, alertas inativos.")
+        GPIO.output(pinoLedVerde,GPIO.LOW)
+        distancia = calcDistancia(pinoGatilho, pinoEcho)
+        time.sleep(1)
+        
+# INICIANDO ESTABILIZACAO DO SENSOR
+#GPIO.output(pinoGatilho,False)
+#print ("Aguardando o Sensor Estabilizar")
+#time.sleep(3)
+    
