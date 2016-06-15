@@ -143,7 +143,7 @@ def notifica(leito, tipo, destino, nome_Paciente, nome_Parente):
         os.system(scripts_dir + "enviar-email " + "\"" + mensagem + "\"" + " " + "\"" + assunto + "\"" + " " + destino)
 
         # NOTIFICACAO ENVIADA
-        #execAudio("notificacao_enviada.wav",S)
+        execAudio("enviado_email.wav",3)
 
         # LIMPAR VARIAVEIS
 
@@ -166,7 +166,7 @@ def notifica(leito, tipo, destino, nome_Paciente, nome_Parente):
         os.system(scripts_dir + "enviar-sms " + "\"" + mensagem + "\"" + " " + destino)
 
         # NOTIFICACAO ENVIADA
-        #execAudio("notificacao_enviada.wav",S)
+        execAudio("enviado_sms.wav",3)
 
         # LIMPAR VARIAVEIS 
 
@@ -199,7 +199,7 @@ def piscaLed(tempo_Espera,pino_Led):
 nomePaciente="Margarete"
 leitoPaciente="BC0013"
 nomeParente="Bruno"
-numTelefoneParente="988122235"
+numTelefoneParente="998620224"
 emailParente="brunogomescorreia@gmail.com"
 
 
@@ -211,9 +211,9 @@ while (contador <=3):
     time.sleep(1)
     contador+=1
 
-# INFORMANDO QUE SISTEMA ESTA LIGADO
-print("Sistema ligado!")
-execAudio("ligado.wav",2)
+# INFORMANDO QUE SISTEMA INICIOU
+print("Sistema iniciado!")
+execAudio("ligado.wav",0)
 
 # LOOP "ETERNO" DO PROGRAMA
 while (True):
@@ -229,7 +229,7 @@ while (True):
     if (GPIO.input(pinoBotao)): # IF ID 1
 
         contador+=1
-        print(contador,"Botao ativo, sensores ativos.")
+        print(contador,"Botao ativo, alertas ativos.")
         GPIO.output(pinoLedVerde,GPIO.HIGH)
 
         distancia = calcDistancia(pinoGatilho, pinoEcho)
@@ -245,9 +245,12 @@ while (True):
             if(distancia < 16 and GPIO.input(pinoBotao)):
                 obstrucaObjeto+=1
                 print("NOTIFICACAO: ALGUM OBJETO ESTA OBSTRUINDO OS SENSORES!")
+                execAudio("objeto_obstruindo.wav",6)
 
-                if(obstrucaoObjeto > 10):
+                if(obstrucaObjeto >= 3):
                     print("Enviando notificacao a respeito da Obstrucao")
+                    execAudio("notificacao_email.wav",6)
+                    notifica(leitoPaciente, "email", emailParente, nomePaciente, nomeParente)
 
                 if(DEBUG):
                     print("----------DEBUG----------")
@@ -259,16 +262,18 @@ while (True):
         elif(distancia > 18 and distancia < 21.50):
             if(DEBUG):
                 print("Entrou em 18 < distancia < 21")
-            # COLOCAR AUDIO
-            #execAudio("cuidado_sra.wav",2)
+
             piscaLed(5,pinoLedVermelho)
 
             if((distancia > 18 and distancia < 21.50) and GPIO.input(pinoBotao)):
                 perigoQueda=+1
                 print("AVISO: PACIENTE COM RISCO DE QUEDA!")
+                execAudio("cuidado_sra_margarete.wav",11)
 
-                if(perigoQueda > 5):
-                    print("Enviando notificacao a respeito da Obstrucao")
+                if(perigoQueda >= 3):
+                    print("Enviando notificacao a respeito do perigo de queda")
+                    execAudio("notificacao_sms.wav",6)
+                    notifica(leitoPaciente, "sms", numTelefoneParente, nomePaciente, nomeParente)
 
                 if(DEBUG):
                     print("----------DEBUG----------")
@@ -277,24 +282,29 @@ while (True):
                     print("pacienteAusente: {}".format(pacienteAusente))
                     print("----------DEBUG----------")
 
-        elif(distancia > 26):
-            print("Entrou em distancia > 26")
+        elif(distancia > 26.50):
+            print("Entrou em distancia > 26.50")
             piscaLed(5,pinoLedVermelho)
 
             if(distancia > 26 and GPIO.input(pinoBotao)):
                 pacienteAusente+=1
                 print("AVISO: PACIENTE NAO ESTA NO LEITO!")
-
+                execAudio("paciente_ausente.wav",3)
+                
                 if(pacienteAusente == 2):
-                    # AUDIO
-                    # execAudio(paciente_ausente,5)
+                    execAudio("notificacao_email.wav",6)
                     notifica(leitoPaciente, "email", emailParente, nomePaciente, nomeParente)
                 elif(pacienteAusente == 3):
+                    execAudio("notificacao_sms.wav",6)
                     notifica(leitoPaciente, "sms", numTelefoneParente, nomePaciente, nomeParente)
                 elif(pacienteAusente == 4):
-                    print("Ligar para parente")
+                    execAudio("notificacao_chamada.wav",5)
+                    print("Ligando para parente...")
+                    # LIGA PARA PARENTE
                     os.system("scp -P 2220 /opt/lipi/scripts/faz-ligacao.call lipi@lipi.engcomputacao.com.br:")
-                    #liga para parente
+                    execAudio("solicitacao_ligacao.wav",4)
+                    
+                    
 
                 if(DEBUG):
                     print("----------DEBUG----------")
